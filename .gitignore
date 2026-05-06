@@ -7,3 +7,4 @@ __pycache__/
 *.html
 data/open_air_chicago*
 data/chicago_hbase_clean.csv
+visualization/local_results/

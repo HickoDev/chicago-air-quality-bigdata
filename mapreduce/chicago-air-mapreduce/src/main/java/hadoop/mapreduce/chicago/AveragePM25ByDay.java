@@ -7,12 +7,8 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVParser;
-import org.apache.commons.csv.CSVRecord;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.DoubleWritable;
@@ -204,19 +200,7 @@ public class AveragePM25ByDay {
     }
 
     private static String[] parseCsvLine(String line) throws IOException {
-        try (CSVParser parser = CSVParser.parse(line, CSVFormat.DEFAULT)) {
-            Iterator<CSVRecord> iterator = parser.iterator();
-            if (!iterator.hasNext()) {
-                return new String[0];
-            }
-
-            CSVRecord record = iterator.next();
-            String[] values = new String[(int) record.size()];
-            for (int index = 0; index < record.size(); index++) {
-                values[index] = record.get(index).trim();
-            }
-            return values;
-        }
+        return CsvUtils.parseLine(line);
     }
 
     private static boolean looksLikeHeader(String[] columns) {
