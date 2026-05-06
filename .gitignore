@@ -1,0 +1,9 @@
+*.csv
+*.jar
+target/
+__pycache__/
+.ipynb_checkpoints/
+*.png
+*.html
+data/open_air_chicago*
+data/chicago_hbase_clean.csv
