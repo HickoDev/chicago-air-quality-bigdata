@@ -8,9 +8,7 @@ from pathlib import Path
 from typing import List
 
 
-DEFAULT_INPUT = Path(
-    r"C:\Users\user\Downloads\Open_Air_Chicago_Individual_Measurements.csv"
-)
+DEFAULT_INPUT = Path("Open_Air_Chicago_Individual_Measurements.csv")
 DEFAULT_OUTPUT = Path(__file__).resolve().parent / "open_air_chicago_sample.csv"
 DEFAULT_SAMPLE_SIZE = 100_000
 DEFAULT_SEED = 42

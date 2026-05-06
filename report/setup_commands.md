@@ -26,7 +26,7 @@ docker exec hadoop-master bash -lc "jps"
 ## 3. Generate the Sample Dataset
 
 ```powershell
-python data\sample_generation.py --input "C:\Users\user\Downloads\Open_Air_Chicago_Individual_Measurements.csv" --output data\open_air_chicago_sample.csv --sample-size 100000
+python data\sample_generation.py --input "<PATH_TO_DOWNLOADED_CSV>\Open_Air_Chicago_Individual_Measurements.csv" --output data\open_air_chicago_sample.csv --sample-size 100000
 ```
 
 ## 4. Copy Project Assets into `hadoop-master`

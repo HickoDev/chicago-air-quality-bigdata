@@ -12,7 +12,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = PROJECT_ROOT / "data" / "chicago_hbase_clean.csv"
 DEFAULT_INPUT_CANDIDATES = [
     PROJECT_ROOT / "data" / "open_air_chicago_sample.csv",
-    Path(r"C:\Users\user\Downloads\Open_Air_Chicago_Individual_Measurements.csv"),
+    PROJECT_ROOT / "data" / "open_air_chicago.csv",
 ]
 
 COLUMN_CANDIDATES = {

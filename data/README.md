@@ -6,8 +6,8 @@ This folder stores helper assets for preparing the Chicago air quality dataset.
 
 - Dataset: Open Air Chicago Individual Measurements
 - Direct CSV URL: `https://data.cityofchicago.org/api/views/xfya-dxtq/rows.csv?accessType=DOWNLOAD`
-- Local dataset used during development:
-  `C:\Users\user\Downloads\Open_Air_Chicago_Individual_Measurements.csv`
+- Example local dataset path:
+  `<PATH_TO_DOWNLOADED_CSV>\Open_Air_Chicago_Individual_Measurements.csv`
 
 ## Notes
 

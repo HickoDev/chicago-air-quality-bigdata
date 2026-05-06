@@ -21,8 +21,8 @@ Main goals:
 - Dataset name: Open Air Chicago Individual Measurements
 - Portal page: Chicago Data Portal
 - Direct CSV URL: `https://data.cityofchicago.org/api/views/xfya-dxtq/rows.csv?accessType=DOWNLOAD`
-- Local file used during development:
-  `C:\Users\user\Downloads\Open_Air_Chicago_Individual_Measurements.csv`
+- Example local file path:
+  `<PATH_TO_DOWNLOADED_CSV>\Open_Air_Chicago_Individual_Measurements.csv`
 
 Current important columns observed in the downloaded file:
 
@@ -154,7 +154,7 @@ https://data.cityofchicago.org/api/views/xfya-dxtq/rows.csv?accessType=DOWNLOAD
 The sampling script reads the large CSV safely and creates a `100000`-row sample.
 
 ```powershell
-python data\sample_generation.py --input "C:\Users\user\Downloads\Open_Air_Chicago_Individual_Measurements.csv"
+python data\sample_generation.py --input "<PATH_TO_DOWNLOADED_CSV>\Open_Air_Chicago_Individual_Measurements.csv"
 ```
 
 Output:
@@ -168,7 +168,7 @@ The script also prints the detected column names and a preview of source rows.
 ### Copy the raw CSV into `hadoop-master`
 
 ```powershell
-docker cp "C:\Users\user\Downloads\Open_Air_Chicago_Individual_Measurements.csv" hadoop-master:/root/open_air_chicago.csv
+docker cp "<PATH_TO_DOWNLOADED_CSV>\Open_Air_Chicago_Individual_Measurements.csv" hadoop-master:/root/open_air_chicago.csv
 ```
 
 ### Inside `hadoop-master`, create the HDFS input folder
