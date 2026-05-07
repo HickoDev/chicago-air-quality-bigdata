@@ -38,21 +38,6 @@ public class AveragePM25ByDay {
     public static final int PM25_COL_INDEX = 24;
     public static final int NO2_COL_INDEX = 22;
 
-    private static final List<DateTimeFormatter> TIMESTAMP_FORMATTERS = Arrays.asList(
-            new DateTimeFormatterBuilder()
-                    .parseCaseInsensitive()
-                    .appendPattern("MM/dd/yyyy hh:mm:ss a")
-                    .toFormatter(Locale.US),
-            new DateTimeFormatterBuilder()
-                    .parseCaseInsensitive()
-                    .appendPattern("MM/dd/yyyy HH:mm:ss")
-                    .toFormatter(Locale.US),
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.US),
-            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss", Locale.US),
-            DateTimeFormatter.ofPattern("MM/dd/yyyy", Locale.US),
-            DateTimeFormatter.ISO_LOCAL_DATE
-    );
-
     public static class DoubleCountWritable implements Writable {
         private double sum;
         private long count;
