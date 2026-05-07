@@ -445,6 +445,36 @@ Generated files:
 - `visualization/pm25_exceedances_top10.png`
 - `visualization/pollution_sensor_map.html`
 
+## Real-Time Streaming Extension with Kafka
+
+The original Open Air Chicago CSV is historical, so the streaming module simulates live sensor events by sending CSV rows one by one to Kafka. Kafka decouples data production from data processing, and Spark Structured Streaming can consume the events continuously for real-time aggregations.
+
+This extension complements the existing batch pipeline:
+
+```text
+CSV -> HDFS -> MapReduce -> Spark -> HBase -> visualizations
+CSV -> Kafka -> consumer / Spark Structured Streaming -> HDFS or HBase
+```
+
+Streaming files:
+
+- [streaming/README.md](streaming/README.md)
+- [streaming/kafka_producer_simulator.py](streaming/kafka_producer_simulator.py)
+- [streaming/kafka_consumer_test.py](streaming/kafka_consumer_test.py)
+- [streaming/spark_streaming_consumer.py](streaming/spark_streaming_consumer.py)
+
+Minimum demo:
+
+```powershell
+docker compose -f streaming/docker-compose.kafka.yml up -d
+
+docker exec -it kafka kafka-topics --create --bootstrap-server kafka:29092 --replication-factor 1 --partitions 3 --topic air_quality_stream
+
+python streaming/kafka_consumer_test.py
+
+python streaming/kafka_producer_simulator.py --csv "%USERPROFILE%\Downloads\Open_Air_Chicago_Individual_Measurements.csv" --limit 20
+```
+
 ## 14. Validation Checklist
 
 Use this checklist before submission:
@@ -462,6 +492,9 @@ Use this checklist before submission:
 - `ImportTsv` loads data successfully
 - `scan 'chicago_air_quality', {LIMIT => 10}` returns rows
 - Visualization files are generated locally
+- Kafka containers start with `docker compose -f streaming/docker-compose.kafka.yml up -d`
+- Topic `air_quality_stream` exists
+- Python Kafka consumer prints JSON events from the producer
 - Screenshots of Hadoop UI, YARN UI, HBase UI, HDFS folders, MapReduce outputs, Spark outputs, and final graphs are captured for the report
 
 ## Notes
