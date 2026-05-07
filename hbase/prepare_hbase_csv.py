@@ -158,7 +158,9 @@ def iter_input_files(input_path: Path) -> Iterator[Path]:
         return
 
     for file_path in sorted(input_path.rglob("*")):
-        if file_path.is_file() and not file_path.name.startswith(("_", ".")):
+        if any(part.startswith(("_", ".")) for part in file_path.relative_to(input_path).parts):
+            continue
+        if file_path.is_file() and file_path.name.startswith("part"):
             yield file_path
 
 
