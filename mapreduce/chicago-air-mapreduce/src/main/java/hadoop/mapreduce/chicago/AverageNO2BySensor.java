@@ -1,7 +1,6 @@
 package hadoop.mapreduce.chicago;
 
 import java.io.IOException;
-import java.util.Locale;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.DoubleWritable;
@@ -82,19 +81,20 @@ public class AverageNO2BySensor {
                 return;
             }
 
-            String[] columns = parseCsvLine(line);
-            if (columns.length == 0 || looksLikeHeader(columns)) {
+            AirQualityEventParser.Event event = AirQualityEventParser.parse(
+                    line,
+                    TIMESTAMP_COL_INDEX,
+                    SENSOR_COL_INDEX,
+                    PM25_COL_INDEX,
+                    NO2_COL_INDEX);
+            if (event == null) {
+                context.getCounter("ChicagoAirQuality", "InvalidInputRows").increment(1L);
                 return;
             }
 
-            if (columns.length <= Math.max(SENSOR_COL_INDEX, NO2_COL_INDEX)) {
-                context.getCounter("ChicagoAirQuality", "ShortRows").increment(1L);
-                return;
-            }
-
-            String sensorId = columns[SENSOR_COL_INDEX].trim();
-            Double no2Value = parseDouble(columns[NO2_COL_INDEX]);
-            if (sensorId.isEmpty() || no2Value == null) {
+            String sensorId = event.getSensorId();
+            Double no2Value = event.getNo2();
+            if (sensorId == null || sensorId.isEmpty() || no2Value == null) {
                 context.getCounter("ChicagoAirQuality", "InvalidNO2Rows").increment(1L);
                 return;
             }
@@ -171,38 +171,5 @@ public class AverageNO2BySensor {
         FileOutputFormat.setOutputPath(job, new Path(args[1]));
 
         System.exit(job.waitForCompletion(true) ? 0 : 1);
-    }
-
-    private static String[] parseCsvLine(String line) throws IOException {
-        return CsvUtils.parseLine(line);
-    }
-
-    private static boolean looksLikeHeader(String[] columns) {
-        return columns.length > Math.max(TIMESTAMP_COL_INDEX, SENSOR_COL_INDEX)
-                && normalize(columns[SENSOR_COL_INDEX]).equals("datasourceid")
-                && normalize(columns[TIMESTAMP_COL_INDEX]).equals("time");
-    }
-
-    private static String normalize(String value) {
-        return value == null
-                ? ""
-                : value.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "");
-    }
-
-    private static Double parseDouble(String value) {
-        if (value == null) {
-            return null;
-        }
-
-        String cleaned = value.trim();
-        if (cleaned.isEmpty() || cleaned.equalsIgnoreCase("null")) {
-            return null;
-        }
-
-        try {
-            return Double.parseDouble(cleaned);
-        } catch (NumberFormatException exception) {
-            return null;
-        }
     }
 }

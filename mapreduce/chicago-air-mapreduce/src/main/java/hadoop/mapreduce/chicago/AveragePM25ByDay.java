@@ -1,14 +1,6 @@
 package hadoop.mapreduce.chicago;
 
 import java.io.IOException;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeFormatterBuilder;
-import java.time.format.DateTimeParseException;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Locale;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.DoubleWritable;
@@ -108,18 +100,19 @@ public class AveragePM25ByDay {
                 return;
             }
 
-            String[] columns = parseCsvLine(line);
-            if (columns.length == 0 || looksLikeHeader(columns)) {
+            AirQualityEventParser.Event event = AirQualityEventParser.parse(
+                    line,
+                    TIMESTAMP_COL_INDEX,
+                    SENSOR_COL_INDEX,
+                    PM25_COL_INDEX,
+                    NO2_COL_INDEX);
+            if (event == null) {
+                context.getCounter("ChicagoAirQuality", "InvalidInputRows").increment(1L);
                 return;
             }
 
-            if (columns.length <= Math.max(TIMESTAMP_COL_INDEX, PM25_COL_INDEX)) {
-                context.getCounter("ChicagoAirQuality", "ShortRows").increment(1L);
-                return;
-            }
-
-            String date = extractDate(columns[TIMESTAMP_COL_INDEX]);
-            Double pm25 = parseDouble(columns[PM25_COL_INDEX]);
+            String date = AirQualityEventParser.extractDate(event.getEventTime());
+            Double pm25 = event.getPm25();
             if (date == null || pm25 == null) {
                 context.getCounter("ChicagoAirQuality", "InvalidPM25Rows").increment(1L);
                 return;
@@ -197,71 +190,5 @@ public class AveragePM25ByDay {
         FileOutputFormat.setOutputPath(job, new Path(args[1]));
 
         System.exit(job.waitForCompletion(true) ? 0 : 1);
-    }
-
-    private static String[] parseCsvLine(String line) throws IOException {
-        return CsvUtils.parseLine(line);
-    }
-
-    private static boolean looksLikeHeader(String[] columns) {
-        return columns.length > Math.max(TIMESTAMP_COL_INDEX, SENSOR_COL_INDEX)
-                && normalize(columns[SENSOR_COL_INDEX]).equals("datasourceid")
-                && normalize(columns[TIMESTAMP_COL_INDEX]).equals("time");
-    }
-
-    private static String normalize(String value) {
-        return value == null
-                ? ""
-                : value.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "");
-    }
-
-    private static Double parseDouble(String value) {
-        if (value == null) {
-            return null;
-        }
-
-        String cleaned = value.trim();
-        if (cleaned.isEmpty() || cleaned.equalsIgnoreCase("null")) {
-            return null;
-        }
-
-        try {
-            return Double.parseDouble(cleaned);
-        } catch (NumberFormatException exception) {
-            return null;
-        }
-    }
-
-    private static String extractDate(String timestampValue) {
-        if (timestampValue == null) {
-            return null;
-        }
-
-        String cleaned = timestampValue.trim();
-        if (cleaned.isEmpty()) {
-            return null;
-        }
-
-        for (DateTimeFormatter formatter : TIMESTAMP_FORMATTERS) {
-            try {
-                return LocalDateTime.parse(cleaned, formatter).toLocalDate().toString();
-            } catch (DateTimeParseException ignored) {
-                // Try parsing as a date-only value next.
-            }
-
-            try {
-                return LocalDate.parse(cleaned, formatter).toString();
-            } catch (DateTimeParseException ignored) {
-                // Continue trying alternative timestamp formats.
-            }
-        }
-
-        String datePart = cleaned.split("\\s+")[0];
-        try {
-            return LocalDate.parse(datePart, DateTimeFormatter.ofPattern("MM/dd/yyyy", Locale.US))
-                    .toString();
-        } catch (DateTimeParseException ignored) {
-            return null;
-        }
     }
 }
