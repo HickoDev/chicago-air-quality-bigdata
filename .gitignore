@@ -10,3 +10,5 @@ data/Open_Air_Chicago_Individual_Measurements.csv
 data/open_air_chicago_sample.csv
 data/chicago_hbase_clean.csv
 visualization/local_results/
+dashboard/local_results/
+data/air_quality_events/
