@@ -1,40 +1,36 @@
-# Real-Time Streaming Extension with Kafka
+# Real-Time Streaming Layer with Kafka
 
 ## Objective
 
-This module adds a Kafka-based streaming simulation to the Chicago air quality project. It reads historical CSV rows one by one and publishes each row as if it were a new live sensor event.
+This module turns the historical Open Air Chicago CSV into simulated live sensor events.
 
-## Architecture
+In the unified project pipeline, Kafka and Spark Structured Streaming are not a separate side demo. They are the ingestion layer:
 
+```text
 Open Air Chicago CSV
 -> Python Kafka Producer
--> Kafka topic `air_quality_stream`
--> Kafka Consumer / Spark Structured Streaming
--> HDFS or HBase
--> Visualization
+-> Kafka topic air_quality_stream
+-> Spark Structured Streaming
+-> HDFS /chicago/streaming/bronze/air_quality_events
+-> MapReduce / HBase / Dashboard
+```
 
 ## Why We Simulate Real Time From a CSV
 
-The Open Air Chicago file is historical, not a live feed. For a Big Data course project, the CSV can still be used to demonstrate streaming concepts by replaying rows with a delay. Each row becomes one live event, which lets Kafka and Spark Structured Streaming process the data continuously.
+The source dataset is historical. The producer replays rows one by one with a delay so every CSV row behaves like a new live air-quality sensor event.
 
 ## Start Kafka
 
-The Kafka and ZooKeeper containers join the existing external Docker network named `hadoop`, so the Hadoop containers and Kafka containers can communicate.
+Kafka and ZooKeeper join the existing Docker network named `hadoop`, so Kafka can communicate with the Hadoop containers.
 
 ```powershell
 docker compose -f streaming/docker-compose.kafka.yml up -d
 ```
 
-Check containers:
+Create the topic:
 
 ```powershell
-docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-```
-
-## Create Kafka Topic
-
-```powershell
-docker exec -it kafka kafka-topics --create --bootstrap-server kafka:29092 --replication-factor 1 --partitions 3 --topic air_quality_stream
+docker exec -it kafka kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --replication-factor 1 --partitions 3 --topic air_quality_stream
 ```
 
 List topics:
@@ -43,18 +39,18 @@ List topics:
 docker exec -it kafka kafka-topics --list --bootstrap-server kafka:29092
 ```
 
-## Run Producer
+## Run the Producer
 
-Install Python dependencies on Windows:
+Install dependencies:
 
 ```powershell
 python -m pip install -r streaming\requirements.txt
 ```
 
-Run the producer:
+Run:
 
 ```powershell
-python streaming/kafka_producer_simulator.py ^
+python streaming\kafka_producer_simulator.py ^
 --csv "%USERPROFILE%\Downloads\Open_Air_Chicago_Individual_Measurements.csv" ^
 --topic air_quality_stream ^
 --bootstrap-server localhost:9092 ^
@@ -62,101 +58,93 @@ python streaming/kafka_producer_simulator.py ^
 --limit 100
 ```
 
-Short demo:
+The producer prints the detected CSV column mapping and every JSON message sent to Kafka.
+
+## Test the Kafka Topic
+
+Python consumer:
 
 ```powershell
-python streaming/kafka_producer_simulator.py --csv "%USERPROFILE%\Downloads\Open_Air_Chicago_Individual_Measurements.csv" --limit 20
+python streaming\kafka_consumer_test.py --from-beginning
 ```
 
-The producer prints the detected column mapping and every sent JSON message.
-
-## Run Consumer
-
-Run the Python validation consumer:
-
-```powershell
-python streaming/kafka_consumer_test.py
-```
-
-To read old messages from the beginning:
-
-```powershell
-python streaming/kafka_consumer_test.py --from-beginning
-```
-
-Consume directly from the Kafka container:
+Kafka console consumer:
 
 ```powershell
 docker exec -it kafka kafka-console-consumer --bootstrap-server kafka:29092 --topic air_quality_stream --from-beginning
 ```
 
-Expected result:
+## Run Spark Structured Streaming
 
-```text
-partition=0 offset=12 key=DX123 value={'event_time': '...', 'ingestion_time': '...', 'sensor_id': 'DX123', ...}
-```
-
-## Optional Spark Structured Streaming
-
-The Spark script reads the Kafka topic and writes real-time aggregations to the console:
-
-- average PM2.5 by sensor
-- average NO2 by sensor
-- count of PM2.5 exceedances where `pm25 > 35`
-
-Inside Docker, use Kafka's internal listener:
-
-```bash
-spark-submit \
---packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0 \
-/root/spark_streaming_consumer.py \
---bootstrap-server kafka:29092 \
---topic air_quality_stream
-```
-
-From a local Spark installation on the host, use:
+Copy the consumer script to `hadoop-master`:
 
 ```powershell
-spark-submit ^
---packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0 ^
-streaming/spark_streaming_consumer.py ^
---bootstrap-server localhost:9092 ^
---topic air_quality_stream
+docker cp streaming\spark_streaming_consumer.py hadoop-master:/root/spark_streaming_consumer.py
 ```
 
-Optional HDFS raw event output:
+Run inside `hadoop-master`:
 
 ```bash
 spark-submit \
+--master yarn \
+--deploy-mode client \
 --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0 \
 /root/spark_streaming_consumer.py \
 --bootstrap-server kafka:29092 \
 --topic air_quality_stream \
---write-hdfs \
---output-path /chicago/streaming_results/air_quality \
+--output-path /chicago/streaming/bronze/air_quality_events \
 --checkpoint-path /chicago/checkpoints/air_quality_stream
 ```
 
-Writing directly to HBase can be added later with Spark `foreachBatch` and an HBase client.
+The script:
 
-## How This Connects to the Existing Hadoop/Spark/HBase Project
+- reads events from Kafka
+- parses JSON fields
+- normalizes empty sensor IDs to `unknown_sensor`
+- computes live console aggregations
+- writes cleaned JSON events to HDFS by default
 
-The existing project is a batch pipeline:
+Disable HDFS writes only for debugging:
 
-CSV -> HDFS -> MapReduce -> Spark -> HBase -> visualizations
+```bash
+spark-submit \
+--master yarn \
+--deploy-mode client \
+--packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0 \
+/root/spark_streaming_consumer.py \
+--bootstrap-server kafka:29092 \
+--topic air_quality_stream \
+--no-write-hdfs
+```
 
-The streaming extension complements it by replaying the same source data as live sensor events:
+## Verify HDFS Output
 
-CSV -> Kafka -> streaming consumer -> HDFS or HBase
+```bash
+hdfs dfs -ls /chicago/streaming/bronze/air_quality_events
+hdfs dfs -cat /chicago/streaming/bronze/air_quality_events/part* | head
+```
 
-This demonstrates both batch processing and stream processing over the same environmental dataset.
+The HDFS JSON files are the input for the Java MapReduce jobs and HBase preparation.
+
+## Dashboard
+
+Use the Streamlit dashboard for a visual view of the live Kafka stream:
+
+```powershell
+python -m pip install -r dashboard\requirements.txt
+streamlit run dashboard\streamlit_dashboard.py -- --from-beginning
+```
+
+Open:
+
+```text
+http://localhost:8501
+```
 
 ## Troubleshooting
 
 - If Kafka cannot start, verify that the external Docker network exists with `docker network ls`.
 - If the `hadoop` network is missing, create it with `docker network create --driver=bridge hadoop`.
 - If the producer cannot connect, confirm that Kafka exposes `localhost:9092` with `docker ps`.
-- If Docker containers cannot resolve Kafka by name, ensure they are attached to the `hadoop` network.
-- If Spark cannot read Kafka, include the package `org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0`.
-- If the consumer prints nothing, start the consumer first and then run the producer, or use `--from-beginning`.
-- If the topic already exists, the create-topic command may report an error; continue with the list-topic command.
+- If Spark cannot read Kafka, include `org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0`.
+- If the dashboard shows no messages, produce new events or run it with `--from-beginning`.
