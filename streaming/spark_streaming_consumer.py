@@ -3,13 +3,13 @@ from __future__ import annotations
 import argparse
 
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, count, from_json, when
+from pyspark.sql.functions import col, count, from_json, lit, when
 from pyspark.sql.types import DoubleType, StringType, StructField, StructType
 
 
 DEFAULT_TOPIC = "air_quality_stream"
 DEFAULT_BOOTSTRAP_SERVER = "kafka:29092"
-DEFAULT_OUTPUT_PATH = "/chicago/streaming_results/air_quality"
+DEFAULT_OUTPUT_PATH = "/chicago/streaming/bronze/air_quality_events"
 DEFAULT_CHECKPOINT_PATH = "/chicago/checkpoints/air_quality_stream"
 
 
@@ -30,7 +30,7 @@ EVENT_SCHEMA = StructType(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Optional Spark Structured Streaming consumer for Kafka air-quality events."
+        description="Spark Structured Streaming ingestion for Kafka air-quality events."
     )
     parser.add_argument("--topic", default=DEFAULT_TOPIC, help="Kafka topic name.")
     parser.add_argument(
@@ -41,7 +41,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-path",
         default=DEFAULT_OUTPUT_PATH,
-        help="Optional HDFS output path for parsed streaming events.",
+        help="HDFS data-lake path for parsed streaming events.",
     )
     parser.add_argument(
         "--checkpoint-path",
@@ -49,9 +49,9 @@ def parse_args() -> argparse.Namespace:
         help="Checkpoint path for Structured Streaming state.",
     )
     parser.add_argument(
-        "--write-hdfs",
+        "--no-write-hdfs",
         action="store_true",
-        help="Also write parsed raw events to HDFS as JSON.",
+        help="Disable HDFS writes and only print console aggregations.",
     )
     return parser.parse_args()
 
@@ -77,6 +77,12 @@ def main() -> None:
         kafka_df.selectExpr("CAST(value AS STRING) AS json_value")
         .select(from_json(col("json_value"), EVENT_SCHEMA).alias("event"))
         .select("event.*")
+        .withColumn(
+            "sensor_id",
+            when(col("sensor_id").isNull() | (col("sensor_id") == ""), lit("unknown_sensor"))
+            .otherwise(col("sensor_id")),
+        )
+        .withColumn("pm25_exceedance", when(col("pm25") > 35.0, lit(1)).otherwise(lit(0)))
     )
 
     aggregations = (
@@ -113,7 +119,8 @@ def main() -> None:
 
     active_queries = [aggregation_query, exceedance_query]
 
-    if args.write_hdfs:
+    if not args.no_write_hdfs:
+        # This HDFS path is the shared data-lake input for MapReduce and HBase preparation.
         # Direct HBase writes can be added later with foreachBatch and an HBase client.
         hdfs_query = (
             parsed_events.writeStream.outputMode("append")
