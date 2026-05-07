@@ -204,7 +204,13 @@ def format_optional_number(value: float) -> str:
 def part_files(folder: Path) -> List[Path]:
     if not folder.exists():
         return []
-    return sorted(path for path in folder.iterdir() if path.is_file() and path.name.startswith("part"))
+    files = [
+        path
+        for path in folder.rglob("part*")
+        if path.is_file() and not any(part.startswith(("_", ".")) for part in path.relative_to(folder).parts)
+    ]
+    mapreduce_files = [path for path in files if path.name.startswith("part-r-")]
+    return sorted(mapreduce_files or files)
 
 
 def load_mapreduce_output(results_dir: Path, folder_name: str, columns: List[str]) -> pd.DataFrame:
@@ -212,7 +218,12 @@ def load_mapreduce_output(results_dir: Path, folder_name: str, columns: List[str
     files = part_files(folder)
     if not files:
         return pd.DataFrame(columns=columns)
-    frames = [pd.read_csv(file_path, sep="\t", header=None, names=columns) for file_path in files]
+    frames = []
+    for file_path in files:
+        frame = pd.read_csv(file_path, sep="\t", header=None, names=columns)
+        if len(columns) == 2:
+            frame = frame[~frame[columns[0]].astype(str).str.contains(",", regex=False)]
+        frames.append(frame)
     return pd.concat(frames, ignore_index=True)
 
 

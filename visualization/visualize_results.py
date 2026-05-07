@@ -34,9 +34,14 @@ def parse_args() -> argparse.Namespace:
 def part_files(folder_path: Path) -> List[Path]:
     if not folder_path.exists():
         return []
-    return sorted(
-        path for path in folder_path.iterdir() if path.is_file() and path.name.startswith("part")
-    )
+
+    files = [
+        path
+        for path in folder_path.rglob("part*")
+        if path.is_file() and not any(part.startswith(("_", ".")) for part in path.relative_to(folder_path).parts)
+    ]
+    mapreduce_files = [path for path in files if path.name.startswith("part-r-")]
+    return sorted(mapreduce_files or files)
 
 
 def load_mapreduce_folder(results_dir: Path, folder_name: str, columns: List[str]) -> pd.DataFrame:
@@ -45,7 +50,13 @@ def load_mapreduce_folder(results_dir: Path, folder_name: str, columns: List[str
     if not files:
         raise FileNotFoundError(f"No MapReduce part files found in {folder_path}")
 
-    frames = [pd.read_csv(file_path, sep="\t", header=None, names=columns) for file_path in files]
+    frames = []
+    for file_path in files:
+        frame = pd.read_csv(file_path, sep="\t", header=None, names=columns)
+        if len(columns) == 2:
+            frame = frame[~frame[columns[0]].astype(str).str.contains(",", regex=False)]
+        frames.append(frame)
+
     return pd.concat(frames, ignore_index=True)
 
 
